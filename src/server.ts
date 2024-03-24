@@ -1,4 +1,4 @@
-import express from './config/express'
+import express from "./config/express";
 import { connect } from './config/db';
 import Logger from './config/logger'
 
