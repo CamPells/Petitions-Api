@@ -97,6 +97,10 @@ const updateUserProfilePhoto = async (userId: number, filename: string): Promise
         await conn.release();
 };
 
+
+
+
+
 export {insert,loginUser,updateUserTokenForLogin,
     updateUserTokenForLogout,getUserById,updateUserEmailById,
     updateUserFirstNameById,updateUserLastNameById,
