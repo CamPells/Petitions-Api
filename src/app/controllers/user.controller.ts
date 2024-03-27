@@ -20,7 +20,7 @@ const register = async (req: Request, res: Response): Promise<void> => {
             return;
         }
         const { email, firstName, lastName, password } = req.body;
-        if (!isValidEmail(email)) { // Using email validator
+        if (!isValidEmail(email)) {
             res.status(400).send('Bad Request');
             return;
         }
