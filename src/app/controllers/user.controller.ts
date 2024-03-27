@@ -65,7 +65,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
         }
         const passwordMatch = await bcrypt.compare(password, user.password);
         if (!passwordMatch) {
-            res.status(401).send('Incorrect email/password');
+            res.status(401).send('UnAuthorized. Incorrect email/password');
             return;
         }
         const token = await authenticationToken();
@@ -145,12 +145,12 @@ const update = async (req: Request, res: Response): Promise<void> => {
         const userId = req.params.id;
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
-            res.status(401).send('Unauthorized. Authentication token is missing');
+            res.status(401).send('Unauthorized or Invalid currentPassword');
             return;
         }
 
         if (!/^\d+$/.test(userId)) {
-            res.status(400).send('Bad Request. Invalid user ID');
+            res.status(400).send('Bad Request. Invalid information');
             return;
         }
         const validation = await validate(schemas.user_edit, req.body);
@@ -189,8 +189,6 @@ const update = async (req: Request, res: Response): Promise<void> => {
                 return;
             }
         }
-
-        // Update user information based on provided fields
         try {
             if (email) {
                 if (!isValidEmail(email)) { // Using email validator
@@ -213,7 +211,7 @@ const update = async (req: Request, res: Response): Promise<void> => {
             res.status(200).send('OK');
         } catch (err) {
             if (err.code === "ER_DUP_ENTRY") {
-                res.statusMessage = 'Forbidden. Email already exists';
+                res.statusMessage = 'Email is already in use';
                 res.status(403).send('Forbidden. Email already exists');
             } else {
                 Logger.error(err);

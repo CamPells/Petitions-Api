@@ -1,10 +1,10 @@
 import {Request, Response} from "express";
 import Logger from "../../config/logger";
 import * as users from "../models/users.model";
-import logger from "../../config/logger";
-import * as files from '../models/users.model'
+
 import fs from "mz/fs";
 import path from "node:path";
+import {getImageFilename} from "../models/users.model";
 const imageDirectory = './storage/images/';
 const defaultPhotoDirectory = './storage/default/';
 
@@ -14,20 +14,15 @@ const defaultPhotoDirectory = './storage/default/';
 const getImage = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = req.params.id;
-        const user = await users.getUserById(parseInt(userId, 10));
+        const imageFilename = await getImageFilename(parseInt(userId, 10));
 
-        if (!user) {
+        if (!imageFilename) {
             res.status(404).send('Not Found. No user with specified ID, or user has no image');
-            Logger.info(user);
+            Logger.info('No image found for user with ID:', userId);
             return;
         }
 
-        if (!user.image_filename) {
-            res.status(404).send("Not Found. No user with specified ID, or user has no image");
-            return;
-        }
-
-        const imagePath = `${imageDirectory}${user.image_filename}`;
+        const imagePath = `${imageDirectory}${imageFilename}`;
 
         fs.readFile(imagePath, (err, data) => {
             if (err) {
@@ -36,7 +31,7 @@ const getImage = async (req: Request, res: Response): Promise<void> => {
                 return;
             }
 
-            const fileType = user.image_filename.split(".").pop()?.toLowerCase();
+            const fileType = imageFilename.split(".").pop()?.toLowerCase();
             let mimeType = "";
 
             switch (fileType) {
@@ -51,7 +46,7 @@ const getImage = async (req: Request, res: Response): Promise<void> => {
                     mimeType = "image/gif";
                     break;
                 default:
-                    mimeType = "application/octet-stream"; // fallback MIME type
+                    mimeType = "application/octet-stream";
             }
 
             res.setHeader("Content-Type", mimeType);

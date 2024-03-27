@@ -4,6 +4,7 @@ import Logger from "../../config/logger";
 import Ajv from "ajv";
 import * as schemas from '../resources/schemas.json'
 import * as petitions from '../models/petitions.model'
+import {getSupportTierId} from "../models/petitions.model";
 
 const ajv = new Ajv({ removeAdditional: 'all', strict: false });
 
@@ -24,19 +25,27 @@ const getAllSupportersForPetition = async (req: Request, res: Response): Promise
         res.status(500).send();
     }
 };
-
 const addSupporter = async (req: Request, res: Response): Promise<void> => {
     try {
+        // Validate request body
         const validation = await validate(schemas.support_post, req.body);
         if (validation !== true) {
             res.status(400).send(`Bad Request: ${validation.toString()}`);
             return;
         }
         const authToken = req.headers['x-authorization'];
+        if (!authToken) {
+            res.status(401).send('Unauthorized: Missing authentication token');
+            return;
+        }
+
         const petitionId = parseInt(req.params.id, 10);
-        const userId = await petitions.getUserIdFromAuthToken(authToken)
-        if (isNaN(petitionId)) {
-            res.status(400).send('Bad Request: Invalid petition ID');
+        const userId = await petitions.getUserIdFromAuthToken(authToken);
+        const supportTierId = req.body.supportTierId;
+        const message = req.body.message;
+
+        if (isNaN(petitionId) || isNaN(supportTierId)) {
+            res.status(400).send('Bad Request: Invalid petition ID or support tier ID');
             return;
         }
 
@@ -45,28 +54,20 @@ const addSupporter = async (req: Request, res: Response): Promise<void> => {
             res.status(403).send('Forbidden: Cannot support your own petition');
             return;
         }
+        const alreadySupported = await petitions.hasUserSupportedTier(userId, petitionId, supportTierId);
+        if (alreadySupported) {
+            res.status(403).send('Forbidden: User has already supported the petition at this tier');
+            return;
+        }
 
-
-        // Check if the petition exists
         const petitionExists = await petitions.petitionExists(petitionId);
         if (!petitionExists) {
-            res.status(404).send(`Not Found: No petition found with id ${petitionId}`);
+            res.status(404).send(`Not Found: No petition found with id `);
             return;
         }
 
-        const message = req.body.message;
+        await petitions.addSupporterToDb(petitionId, userId, supportTierId, message);
 
-        // Get the support tier ID for the given petition and user
-        const supportTierId = await petitions.getSupportTierId(petitionId, userId);
-        if (supportTierId === null) {
-            res.status(404).send(`Not Found: No support tier found for the given petition and user`);
-            return;
-        }
-
-        // Call function to add supporter to the database
-        await petitions.addSupporterToDb(petitionId, supportTierId, message);
-
-        // Return success response
         res.status(201).send('Created');
     } catch (err) {
         Logger.error(err);
@@ -75,6 +76,7 @@ const addSupporter = async (req: Request, res: Response): Promise<void> => {
         return;
     }
 };
+
 const validate = async (schema: object, data: any) => {
     try {
         const validator = ajv.compile(schema);
@@ -86,6 +88,5 @@ const validate = async (schema: object, data: any) => {
         return err.message;
     }
 };
-
 
 export {getAllSupportersForPetition, addSupporter}

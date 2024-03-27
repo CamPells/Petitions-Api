@@ -6,7 +6,7 @@ import * as petitions from '../models/petitions.model'
 import * as users from '../models/users.model'
 import fs from "mz/fs";
 const imageDirectory = './storage/images/';
-const defaultPhotoDirectory = './storage/default/';
+
 
 const getImage = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -64,27 +64,26 @@ const setImage = async (req: Request, res: Response): Promise<void> => {
         const petitionId = parseInt(req.params.id, 10);
         const authToken = req.headers['x-authorization'];
         const userId = await petitions.getUserIdFromAuthToken(authToken);
+        let isNew = true;
 
-        // Check if the user is authenticated
         if (!authToken) {
             res.status(401).send('Unauthorized');
             return;
         }
 
-        // Check if the petition exists
         const petition = await petitions.getOne(petitionId);
         if (!petition) {
             res.status(404).send('Not found. No such petition with the given ID');
             return;
         }
 
-        // Check if the user is the owner of the petition
         if (petition.ownerId !== userId) {
             res.status(403).send('Forbidden. Cannot edit another user\'s petition');
             return;
         }
 
-        // Check if the request contains the content-type header
+        const filename = await petitions.getImageFilename(petitionId);
+
         const contentType = req.headers['content-type'];
         if (!contentType) {
             res.status(400).send('Bad Request. Missing content-type header');
@@ -92,7 +91,6 @@ const setImage = async (req: Request, res: Response): Promise<void> => {
         }
 
         let fileType = '';
-        // Determine the file type based on the content type
         if (contentType.includes('image/png')) {
             fileType = 'png';
         } else if (contentType.includes('image/jpeg')) {
@@ -103,20 +101,18 @@ const setImage = async (req: Request, res: Response): Promise<void> => {
             res.status(400).send('Bad Request. Unsupported image type');
             return;
         }
+        if(filename != null && filename !== "") {
+            await petitions.removeImage(filename);
+            isNew = false;
+        }
 
-        // Generate the image path
         const imagePath = `${imageDirectory}${petitionId}.${fileType}`;
-
-        // Write the image data to the file
         await fs.promises.writeFile(imagePath, req.body, 'binary');
-
-        // Update the petition's hero image filename
-        await petitions.updatePetitionsHeroPic(petitionId, `${petitionId}.${fileType}`);
-        const hasExistingPhoto = !!petition.image_filename;
-
-        // Determine the response status code based on whether the petition already had a hero image
-        const statusCode = hasExistingPhoto ? 200 : 201;
-        res.status(statusCode).send('OK');
+        petitions.updatePetitionsHeroPic(petitionId, `${petitionId}.${fileType}`);
+        if(isNew)
+            res.status(201).send()
+        else
+            res.status(200).send()
 
     } catch (err) {
         Logger.error(err);

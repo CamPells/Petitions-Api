@@ -1,7 +1,8 @@
 import { getPool } from "../../config/db";
 import {ResultSetHeader, RowDataPacket} from 'mysql2';
-
+const imageDirectory = './storage/images/';
 import Logger from "../../config/logger";
+import fs from "mz/fs";
 
 const fetchAllPetitionsFromDB = async (query: string):Promise<RowDataPacket> => {
     const conn = await getPool().getConnection();
@@ -226,12 +227,14 @@ const getSupportersFromDatabase = async (petitionId: number): Promise<Supporter[
     return rows;
 };
 
-const addSupporterToDb = async (petitionId: number, supportTierId: number, message: string): Promise<void> => {
-    const insertQuery = `
-        INSERT INTO supporter (support_tier_id, message, timestamp)
-        VALUES (?, ?, NOW())`;
-    await getPool().query(insertQuery, [supportTierId, message]);
+const addSupporterToDb = async (petitionId: number, supporterId: number, supportTierId: number, message: string): Promise<void> => {
+    const conn = await getPool().getConnection();
+    const query = 'INSERT INTO `supporter` (`petition_id`, `user_id`, `support_tier_id`, `message`) VALUES (?, ?, ?, ?)'
+    const parameters = [petitionId, supporterId, supportTierId, message];
+    await conn.query(query, parameters);
+    conn.release();
 };
+
 
 
 const getSupportTierId = async (petitionId: number, userId: number): Promise<number | null> => {
@@ -264,6 +267,40 @@ const updatePetitionsHeroPic = async (petitionId: number, filename: string): Pro
     await conn.query(query, parameters);
     await conn.release();
 };
+const updateCategory = async (petitionId: number, categoryId: number): Promise<void> => {
+    const conn = await getPool().getConnection();
+    const query = 'UPDATE `petition` SET `category_id` = ? WHERE `id` = ?';
+    await conn.query(query, [categoryId, petitionId]);
+    conn.release();
+};
+
+// Function to update the description of a petition
+const updatePetitionDescription = async (petitionId: number, description: string): Promise<void> => {
+    const conn = await getPool().getConnection();
+    const query = 'UPDATE `petition` SET `description` = ? WHERE `id` = ?';
+    await conn.query(query, [description, petitionId]);
+    conn.release();
+};
+
+// Function to check if a title exists in another petition
+const updateTitle = async (petitionId: number, title: string): Promise<void> => {
+    const conn = await getPool().getConnection();
+    const query = ' update petition set title = ? where id = ?';
+    const [ result ] = await conn.query( query, [ title , petitionId ] );
+    await conn.release();
+}
+const hasUserSupportedTier = async (userId: number, petitionId: number, supportTierId: number): Promise<boolean> => {
+    const query = 'SELECT COUNT(*) AS count FROM supporter WHERE user_id = ? AND petition_id = ? AND support_tier_id = ?';
+    const [rows] = await getPool().query(query, [userId, petitionId, supportTierId]);
+    return rows[0].count > 0;
+};
+const removeImage = async (filename: string): Promise<void> => {
+    if(filename) {
+        if (await fs.exists(imageDirectory + filename)) {
+            await fs.unlink(imageDirectory + filename);
+        }
+    }
+}
 
 
 
@@ -272,4 +309,8 @@ const updatePetitionsHeroPic = async (petitionId: number, filename: string): Pro
 
 
 
-export {updatePetitionsHeroPic,getImageFilename, getSupportTierId,addSupporterToDb,isUserOwnerOfPetition, getSupportersFromDatabase, supportTierExists,removeSupportTier,titleExistsInPetition,insertSupportTier, updateSupportTierCost, updateSupportTierTitle, updateSupportTierDescription,supporterExistsForTier,hasSupporters,getAllCategories, petitionExists, removePetition, fetchAllPetitionsFromDB, getOne, getSupportTiers, categoryExists, insertPetition,getUserIdFromAuthToken, isPetitionOwner, updatePetition};
+export {removeImage,hasUserSupportedTier,updatePetitionsHeroPic,getImageFilename, getSupportTierId
+    ,addSupporterToDb,isUserOwnerOfPetition, getSupportersFromDatabase, supportTierExists,removeSupportTier,titleExistsInPetition
+    ,insertSupportTier, updateSupportTierCost, updateSupportTierTitle, updateSupportTierDescription,supporterExistsForTier,hasSupporters,getAllCategories
+    , petitionExists, removePetition, updateTitle, updateCategory, updatePetitionDescription,
+    fetchAllPetitionsFromDB, getOne, getSupportTiers, categoryExists, insertPetition,getUserIdFromAuthToken, isPetitionOwner, updatePetition};

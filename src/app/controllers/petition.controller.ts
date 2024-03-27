@@ -14,14 +14,14 @@ const getAllPetitions = async (req: Request, res: Response): Promise<void> => {
     try {
         const categoryIds = req.query.categoryIds as string[];
         const supportingCost = req.query.supportingCost as string;
-        const startIndex = req.query.startIndex as string;
-        const count = req.query.count as string;
-        const q = req.query.q as string;
-        const ownerId = req.query.ownerId as string;
-        const supporterId = req.query.supporterId as string;
+        const startIdx = req.query.startIndex as string;
+        const requestCount = req.query.count as string;
+        const searchText = req.query.q as string;
+        const requestedOwnerId = req.query.ownerId as string;
+        const requestedSupporterId = req.query.supporterId as string;
         const sortBy = req.query.sortBy as string;
 
-        if (supporterId && isNaN(Number(supporterId))) {
+        if (requestedSupporterId && isNaN(Number(requestedSupporterId))) {
             res.status(400).send('Bad Request: supporterId must be a number');
             return;
         }
@@ -32,35 +32,30 @@ const getAllPetitions = async (req: Request, res: Response): Promise<void> => {
             '(SELECT COUNT(*) FROM supporter WHERE petition_id = p.id) AS numberOfSupporters ' +
             'FROM petition p JOIN user u ON p.owner_id = u.id ' +
             'LEFT JOIN supporter s ON p.id = s.petition_id ' +
-            'JOIN support_tier st ON p.id = st.petition_id '
+            'JOIN support_tier st ON p.id = st.petition_id ';
 
         let userParamString = 'WHERE 1=1';
-        Logger.info('blah blahblah')
 
-
-        if (q !== undefined) {
-            userParamString += ` AND (p.title LIKE '%${q}%' OR p.description LIKE '%${q}%')`;
+        if (searchText !== undefined) {
+            userParamString += ` AND (p.title LIKE '%${searchText}%' OR p.description LIKE '%${searchText}%')`;
         }
         if (categoryIds !== undefined && categoryIds.length > 0) {
             userParamString += ` AND p.category_id IN (${categoryIds.join(',')})`;
         }
-        if (ownerId !== undefined) {
-            userParamString += ` AND p.owner_id = ${ownerId}`;
+        if (requestedOwnerId !== undefined) {
+            userParamString += ` AND p.owner_id = ${requestedOwnerId}`;
         }
-        if (supporterId !== undefined) {
-            userParamString += ` AND s.user_id = ${supporterId}`;
+        if (requestedSupporterId !== undefined) {
+            userParamString += ` AND s.user_id = ${requestedSupporterId}`;
         }
 
         let sortQuery = ' GROUP BY p.id ';
 
         if (supportingCost === undefined) {
-            sortQuery += ''
-
+            sortQuery += '';
         } else {
             sortQuery += ` HAVING supportingCost <= ${supportingCost}`;
         }
-        Logger.info('blah blahblah!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-
 
         sortQuery += ' ';
 
@@ -84,25 +79,25 @@ const getAllPetitions = async (req: Request, res: Response): Promise<void> => {
                 sortQuery += ' ORDER BY p.creation_date ASC, p.id ASC';
                 break;
         }
-        const FinalQuery = mainQuery + userParamString + sortQuery
+        const FinalQuery = mainQuery + userParamString + sortQuery;
 
         const petitionResult = await petitions.fetchAllPetitionsFromDB(FinalQuery);
         const petitionCount = petitionResult.length;
-        let ress = null;
+        let response = null;
 
-        if (startIndex !== undefined) {
-            ress = [];
-            let startI = parseInt(startIndex, 10);
+        if (startIdx !== undefined) {
+            response = [];
+            let startIndex = parseInt(startIdx, 10);
 
-            for (let i = parseInt(count, 10); i > 0 && startI < petitionCount; i--) {
-                ress.push(petitionResult[startI]);
-                startI++;
+            for (let i = parseInt(requestCount, 10); i > 0 && startIndex < petitionCount; i--) {
+                response.push(petitionResult[startIndex]);
+                startIndex++;
             }
         } else {
-            ress = petitionResult;
+            response = petitionResult;
         }
 
-        res.status(200).send({"petitions": ress, "count": petitionCount});
+        res.status(200).send({ "petitions": response, "count": petitionCount });
         return;
     } catch (err) {
         Logger.error(err); // Assuming Logger is defined elsewhere
@@ -236,18 +231,35 @@ const editPetition = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Check if the user is the owner of the petition
         const isOwner = await petitions.isPetitionOwner(petitionId, userId);
         if (!isOwner) {
             res.status(403).send('Forbidden: Only the owner of a petition may change it');
             return;
         }
 
+        const { title, description, categoryId } = req.body;
 
 
-        const { title, description, cost } = req.body;
-        Logger.info(title, description, cost);
-        await petitions.updatePetition(petitionId, title, description, parseFloat(cost));
+        if (title !== undefined) {
+            const petitonTitleExists = await petitions.titleExistsInPetition(petitionId,title)
+            if (petitonTitleExists) {
+                res.statusMessage = "Bad Request: Title";
+                res.status(403).send();
+            }
+            await petitions.updateTitle(petitionId, title);
+        }
+
+        if (description !== undefined) {
+            await petitions.updatePetitionDescription(petitionId, description);
+        }
+
+        if (categoryId !== undefined) {
+            const catExists = await petitions.categoryExists(categoryId);
+            if (!catExists) {
+                res.status(403).send('Bad Request');
+            }
+            await petitions.updateCategory(petitionId, categoryId);
+        }
 
         res.status(200).send('Petition successfully updated');
         return;
@@ -291,8 +303,6 @@ const deletePetition = async (req: Request, res: Response): Promise<void> => {
             res.status(403).send('Forbidden: Cannot delete a petition with one or more supporters');
             return;
         }
-
-        // Delete the petition
         await petitions.removePetition(petitionId);
 
         res.status(200).send("petition deleted");

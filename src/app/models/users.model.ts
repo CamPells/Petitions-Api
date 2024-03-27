@@ -1,6 +1,4 @@
 import {getPool} from "../../config/db";
-import fs from 'mz/fs';
-import * as defaultUsers from "../resources/default_users.json"
 import * as passwords from "../services/passwords";
 const imageDirectory = './storage/images/';
 const defaultPhotoDirectory = './storage/default/';
@@ -96,12 +94,17 @@ const updateUserProfilePhoto = async (userId: number, filename: string): Promise
         await conn.query(query, parameters);
         await conn.release();
 };
+const getImageFilename = async (id: number): Promise<string> => {
+    const query = 'SELECT `image_filename` FROM `user` WHERE id = ?';
+    const rows = await getPool().query(query, [id]);
+    return rows[0].length === 0 ? null : rows[0][0].image_filename;
+}
 
 
 
 
 
-export {insert,loginUser,updateUserTokenForLogin,
+export {insert,loginUser,updateUserTokenForLogin,getImageFilename,
     updateUserTokenForLogout,getUserById,updateUserEmailById,
     updateUserFirstNameById,updateUserLastNameById,
     updateUserPasswordById,getUserIdFromToken,updateUserProfilePhoto,};
