@@ -22,7 +22,8 @@ const getAllPetitions = async (req: Request, res: Response): Promise<void> => {
         const sortBy = req.query.sortBy as string;
 
         if (requestedSupporterId && isNaN(Number(requestedSupporterId))) {
-            res.status(400).send('Bad Request: supporterId must be a number');
+            res.statusMessage = "Bad Request: supporterId must be a number"
+            res.status(400).send()
             return;
         }
 
@@ -121,7 +122,8 @@ const getPetition = async (req: Request, res: Response): Promise<void> => {
         }
         const exists = await petitions.petitionExists(petitionId);
         if (!exists) {
-            res.status(404).json({ message: "Petition not found" });
+            res.statusMessage = "Petition not found"
+            res.status(404).send();
             return;
         }
 
@@ -144,7 +146,8 @@ const getPetition = async (req: Request, res: Response): Promise<void> => {
             });
             return;
         } else {
-            res.status(404).json({ message: "Petition not found" });
+            res.statusMessage = "Petition not found"
+            res.status(404).send()
             return;
         }
     } catch (err) {
@@ -158,20 +161,23 @@ const addPetition = async (req: Request, res: Response): Promise<void> => {
     try {
         const validation = await validate(schemas.petition_post, req.body);
         if (validation !== true) {
-            res.status(400).send(`Bad Request ${validation.toString()}`);
+            res.statusMessage = "Bad Request";
+            res.status(400).send();
             return;
         }
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
             Logger.info('Unauthorized: Missing authentication token');
-            res.status(401).send('Unauthorized: Missing authentication token');
+            res.statusMessage = 'Unauthorized: Missing authentication token';
+            res.status(401).send();
             return;
         }
 
         const userId = await petitions.getUserIdFromAuthToken(authToken);
         if (!userId) {
             Logger.info(`User ID: ${userId}`);
-            res.status(401).send('Unauthorized: Invalid authentication token');
+            res.statusMessage = 'Unauthorized: Invalid authentication token';
+            res.status(401).send();
             return;
         }
 
@@ -179,28 +185,31 @@ const addPetition = async (req: Request, res: Response): Promise<void> => {
         const categoryExistsResult = await petitions.categoryExists(categoryId);
         if (!categoryExistsResult) {
             Logger.info('Bad Request: categoryId must reference an existing category');
-            res.status(400).send('Bad Request: categoryId must reference an existing category');
+            res.statusMessage = 'Bad Request: categoryId must reference an existing category';
+            res.status(400).send();
             return;
         }
         if (supportTiers.length < 1 || supportTiers.length > 3) {
-            res.status(400).send('Bad Request: A petition must have between 1 and 3 support tiers');
+            res.statusMessage = 'Bad Request: A petition must have between 1 and 3 support tiers';
+            res.status(400).send();
             return;
         }
         const uniqueTitles = new Set();
         for (const tier of supportTiers) {
             if (uniqueTitles.has(tier.title)) {
-                res.status(400).send('Bad Request: Each support tier title must be unique');
+                res.statusMessage = 'Bad Request: Each support tier title must be unique';
+                res.status(400).send();
                 return;
             }
             uniqueTitles.add(tier.title);
         }
 
         const petitionId = await petitions.insertPetition(title, description, categoryId, userId, supportTiers);
-        res.status(201).send({ message: 'Petition successfully added', petitionId });
+        res.status(201).send( {petitionId} );
         return;
     } catch (err) {
         Logger.error(err);
-        res.statusMessage = "Internal Server Error";
+        res.statusMessage = 'Internal Server Error';
         res.status(500).send();
         return;
     }

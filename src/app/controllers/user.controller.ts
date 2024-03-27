@@ -16,12 +16,14 @@ const register = async (req: Request, res: Response): Promise<void> => {
     try {
         const validation = await validate(schemas.user_register, req.body);
         if (validation !== true) {
-            res.status(400).send(`Bad Request ${validation.toString()}`);
+            res.statusMessage = 'Bad Request. Invalid information';
+            res.status(400).send();
             return;
         }
         const { email, firstName, lastName, password } = req.body;
         if (!isValidEmail(email)) {
-            res.status(400).send('Bad Request');
+            res.statusMessage = 'Bad Request';
+            res.status(400).send();
             return;
         }
         try {
@@ -44,28 +46,42 @@ const register = async (req: Request, res: Response): Promise<void> => {
 };
 
 const login = async (req: Request, res: Response): Promise<void> => {
-    try{
-        const {email, password} = req.body
+    try {
+        const { email, password } = req.body;
         if (!email || !password) {
-            res.status(400).send('Bad Request invalid information');
+            res.statusMessage = 'Bad Request. Invalid information';
+            res.status(400).send();
+            return;
+        }
+        if (!isValidEmail(email)) {
+            res.statusMessage = 'Bad Request. Invalid email format';
+            res.status(400).send();
+            return;
+        }
+        const emailExists = await users.checkEmailExists(email);
+        if (!emailExists) {
+            res.statusMessage = 'Email dose not exist';
+            res.status(401).send();
             return;
         }
         const validation = await validate(schemas.user_login, req.body);
         if (validation !== true) {
-            res.status(400).send(`Bad Request ${validation.toString()}`);
+            res.statusMessage = `Bad Request ${validation.toString()}`;
+            res.status(400).send();
             return;
         }
         const user = await users.loginUser(email, req.body);
         const id = user.id;
         logger.info(user);
         if (!user) {
-            res.status(400).send('User not found');
+            res.statusMessage = 'Bad Request. User not found';
+            res.status(400).send();
             return;
-
         }
         const passwordMatch = await bcrypt.compare(password, user.password);
         if (!passwordMatch) {
-            res.status(401).send('UnAuthorized. Incorrect email/password');
+            res.statusMessage = 'Unauthorized. Incorrect email/password';
+            res.status(401).send();
             return;
         }
         const token = await authenticationToken();
@@ -81,21 +97,27 @@ const login = async (req: Request, res: Response): Promise<void> => {
         res.status(500).send();
         return;
     }
-}
+};
 
 const logout = async (req: Request, res: Response): Promise<void> => {
     try {
         const authToken = req.headers['x-authorization'];
 
         if (!authToken) {
-            res.status(401).send('Unauthorized. Cannot log out if you are not authenticated');
+            res.statusMessage = 'Unauthorized. Cannot log out if you are not authenticated';
+            res.status(401).send();
             return;
         }
+        const authTokenMatch = await users.checkAuthToken(authToken);
+        if(!authTokenMatch) {
+            res.statusMessage = 'Unauthorized. Cannot log out if you are not authenticated';
+            res.status(401).send()
+            return
+        }
 
-        // Update user's authentication token to null based on authToken
         await users.updateUserTokenForLogout(authToken);
-
-        res.status(200).send('Logged out successfully');
+        res.statusMessage = 'Logged out successfully'
+        res.status(200).send();
     } catch (err) {
         Logger.error(err);
         res.statusMessage = 'Internal Server Error';
@@ -109,13 +131,15 @@ const view = async (req: Request, res: Response): Promise<void> => {
         const userId = req.params.id;
 
         if (!/^\d+$/.test(userId)) {
-            res.status(400).send('Bad Request. Invalid user ID');
+            res.statusMessage = 'Bad Request. Invalid user ID';
+            res.status(400).send();
             return;
         }
         const user = await users.getUserById(parseInt(userId, 10));
 
         if (!user) {
-            res.status(404).send('Not Found. No user with specified ID');
+            res.statusMessage = 'Not Found. No user with specified ID';
+            res.status(404).send();
             logger.info(user);
             return;
         }
@@ -125,9 +149,8 @@ const view = async (req: Request, res: Response): Promise<void> => {
                 'firstName': user.first_name,
                 'lastName': user.last_name
             });
-            logger.info(user)
+            logger.info(user);
         } else {
-            // Otherwise, return only first and last names
             res.status(200).json({
                 'firstName': user.first_name,
                 'lastName': user.last_name
@@ -145,54 +168,65 @@ const update = async (req: Request, res: Response): Promise<void> => {
         const userId = req.params.id;
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
-            res.status(401).send('Unauthorized or Invalid currentPassword');
+            res.statusMessage = 'Unauthorized or Invalid currentPassword';
+            res.status(401).send();
             return;
         }
 
         if (!/^\d+$/.test(userId)) {
-            res.status(400).send('Bad Request. Invalid information');
+            res.statusMessage = 'Bad Request. Invalid information';
+            res.status(400).send();
             return;
         }
         const validation = await validate(schemas.user_edit, req.body);
         if (validation !== true) {
-            res.status(400).send(`Bad Request ${validation.toString()}`);
+            res.statusMessage = `Bad Request ${validation.toString()}`;
+            res.status(400).send();
             return;
         }
         const user = await users.getUserById(parseInt(userId, 10));
-        if (authToken !== user.auth_token) {
-            res.status(403).send('Can not edit another user\'s information');
+        if (!user) {
+            res.statusMessage = 'Not Found. No user with specified ID';
+            res.status(404).send();
+            logger.info(user);
             return;
         }
-        if (!user) {
-            res.status(404).send('Not Found. No user with specified ID');
-            logger.info(user);
+        if (authToken !== user.auth_token) {
+            res.statusMessage = 'Forbidden. Cannot edit another user\'s information';
+            res.status(403).send();
             return;
         }
 
         const { email, firstName, lastName, password, currentPassword } = req.body;
         if (!isValidEmail(user.email)) { // Using email validator
-            res.status(400).send('Bad Request');
+            res.statusMessage = 'Bad Request';
+            res.status(400).send();
             return;
         }
 
         if (password && currentPassword) {
             const passwordMatch = await bcrypt.compare(currentPassword, user.password);
             if (!passwordMatch) {
-                res.status(401).send('Incorrect password');
+                res.statusMessage = 'Incorrect password';
+                res.status(401).send();
+                return;
             }
             if (password === currentPassword) {
-                res.status(403).send('Forbidden. Current password and new password must not be the same');
+                res.statusMessage = 'Forbidden. Current password and new password must not be the same';
+                res.status(403).send();
                 return;
             }
             if (password.length < 6) {
-                res.status(400).send('Bad Request. Password must be at least 6 characters');
+                res.statusMessage = 'Bad Request. Password must be at least 6 characters';
+                res.status(400).send();
                 return;
             }
         }
         try {
             if (email) {
-                if (!isValidEmail(email)) { // Using email validator
-                    res.status(400).send('Bad Request');
+                if (!isValidEmail(email)) {
+                    res.statusMessage = 'Bad Request';
+                    res.status(400).send();
                     return;
                 }
                 await users.updateUserEmailById(user.id, email);
@@ -207,16 +241,16 @@ const update = async (req: Request, res: Response): Promise<void> => {
                 await users.updateUserPasswordById(user.id, password);
             }
 
-            // Send success response
-            res.status(200).send('OK');
+            res.statusMessage = 'OK'
+            res.status(200).send();
         } catch (err) {
             if (err.code === "ER_DUP_ENTRY") {
                 res.statusMessage = 'Email is already in use';
-                res.status(403).send('Forbidden. Email already exists');
+                res.status(403).send();
             } else {
                 Logger.error(err);
                 res.statusMessage = "Internal Server Error";
-                res.status(500).send()
+                res.status(500).send();
             }
         }
     } catch (err) {

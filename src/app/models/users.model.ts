@@ -27,6 +27,12 @@ const loginUser = async (email: string, password: string): Promise<RowDataPacket
     return rows.length > 0 ? rows[0] : null;
 
 }
+const checkEmailExists = async (email: string): Promise<boolean> => {
+    const conn = await getPool().getConnection();
+    const [rows] = await conn.query('SELECT id FROM `user` WHERE email = ?', [email]);
+    await conn.release();
+    return rows.length > 0;
+};
 
 const updateUserTokenForLogin = async (userId: number, token: string): Promise<void> => {
     const conn = await getPool().getConnection();
@@ -99,12 +105,19 @@ const getImageFilename = async (id: number): Promise<string> => {
     const rows = await getPool().query(query, [id]);
     return rows[0].length === 0 ? null : rows[0][0].image_filename;
 }
+const checkAuthToken = async (authToken: string | string[]): Promise<boolean> => {
+    const conn = await getPool().getConnection();
+    const query = 'SELECT COUNT(*) AS count FROM `user` WHERE auth_token = ?';
+    const [rows] = await conn.query(query, [authToken]);
+    conn.release();
+    return rows[0].count === 1;
+}
 
 
 
 
 
-export {insert,loginUser,updateUserTokenForLogin,getImageFilename,
+export {checkAuthToken,checkEmailExists,insert,loginUser,updateUserTokenForLogin,getImageFilename,
     updateUserTokenForLogout,getUserById,updateUserEmailById,
     updateUserFirstNameById,updateUserLastNameById,
     updateUserPasswordById,getUserIdFromToken,updateUserProfilePhoto,};
