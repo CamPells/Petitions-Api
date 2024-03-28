@@ -228,6 +228,7 @@ const supportTierExists = async (tierId: number): Promise<boolean> => {
     Logger.info(rows);
     return rows.length > 0 && rows[0].count > 0;
 };
+
 const getSupportersFromDatabase = async (petitionId: number): Promise<Supporter[]> => {
     const query = `
     SELECT s.id AS supportId, s.support_tier_id AS supportTierId, s.message,
@@ -315,6 +316,7 @@ const removeImage = async (filename: string): Promise<void> => {
         }
     }
 }
+
 
 
 

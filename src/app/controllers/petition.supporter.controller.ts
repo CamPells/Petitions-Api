@@ -44,6 +44,8 @@ const addSupporter = async (req: Request, res: Response): Promise<void> => {
         const supportTierId = req.body.supportTierId;
         const message = req.body.message;
 
+
+
         if (isNaN(petitionId) || isNaN(supportTierId)) {
             res.status(400).send('Bad Request: Invalid petition ID or support tier ID');
             return;
@@ -57,6 +59,11 @@ const addSupporter = async (req: Request, res: Response): Promise<void> => {
         const alreadySupported = await petitions.hasUserSupportedTier(userId, petitionId, supportTierId);
         if (alreadySupported) {
             res.status(403).send('Forbidden: User has already supported the petition at this tier');
+            return;
+        }
+        const supportTierExists = await petitions.supportTierExists(supportTierId);
+        if (!supportTierExists) {
+            res.status(404).send(`Not Found: No support tier found with id `);
             return;
         }
 

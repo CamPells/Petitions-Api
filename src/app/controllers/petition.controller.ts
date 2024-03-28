@@ -242,7 +242,8 @@ const editPetition = async (req: Request, res: Response): Promise<void> => {
         const { title, description, categoryId } = req.body;
         const validation = await validate(schemas.petition_patch, req.body);
         if (validation !== true) {
-            res.status(400).send(`Bad Request: ${validation.toString()}`);
+            res.statusMessage = "Bad Request";
+            res.status(400).send();
             return;
         }
         const petitionId = parseInt(req.params.id, 10);
@@ -254,19 +255,22 @@ const editPetition = async (req: Request, res: Response): Promise<void> => {
 
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
-            res.status(401).send('Unauthorized: Missing authentication token');
+            res.statusMessage = 'Unauthorized: Missing authentication token';
+            res.status(401).send();
             return;
         }
 
         const userId = await petitions.getUserIdFromAuthToken(authToken);
         if (!userId) {
-            res.status(401).send('Unauthorized: Invalid authentication token');
+            res.statusMessage = 'Unauthorized: Invalid authentication token'
+            res.status(401).send();
             return;
         }
 
         const isOwner = await petitions.isPetitionOwner(petitionId, userId);
         if (!isOwner) {
-            res.status(403).send('Forbidden: Only the owner of a petition may change it');
+            res.statusMessage = 'Forbidden: Only the owner of a petition may change it'
+            res.status(403).send();
             return;
         }
 
@@ -292,12 +296,14 @@ logger.info("I get here")
         if (categoryId !== undefined) {
             const catExists = await petitions.categoryExists(categoryId);
             if (!catExists) {
-                res.status(403).send('Bad Request');
+                res.statusMessage = 'Bad Request'
+                res.status(403).send();
             }
             await petitions.updateCategory(petitionId, categoryId);
         }
+        res.statusMessage = "Petition successfully updated"
 
-        res.status(200).send('Petition successfully updated');
+        res.status(200).send();
         return;
     } catch (err) {
         Logger.error(err);
@@ -311,7 +317,8 @@ const deletePetition = async (req: Request, res: Response): Promise<void> => {
     try {
         const petitionId = parseInt(req.params.id, 10);
         if (isNaN(petitionId)) {
-            res.status(400).send('Bad Request: Invalid petition ID');
+            res.statusMessage = 'Bad Request: Invalid petition ID';
+            res.status(400).send();
             return;
         }
 
