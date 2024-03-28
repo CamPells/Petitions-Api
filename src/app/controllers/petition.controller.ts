@@ -4,6 +4,8 @@ import Logger from '../../config/logger';
 import Ajv from "ajv";
 import * as schemas from '../resources/schemas.json'
 import * as petitions from '../models/petitions.model'
+import {categoryExists} from "../models/petitions.model";
+import logger from "../../config/logger";
 const ajv = new Ajv({ removeAdditional: 'all', strict: false });
 const getAllPetitions = async (req: Request, res: Response): Promise<void> => {
     const validation = await validate(schemas.petition_search, req.query);
@@ -41,7 +43,27 @@ const getAllPetitions = async (req: Request, res: Response): Promise<void> => {
             userParamString += ` AND (p.title LIKE '%${searchText}%' OR p.description LIKE '%${searchText}%')`;
         }
         if (categoryIds !== undefined && categoryIds.length > 0) {
-            userParamString += ` AND p.category_id IN (${categoryIds.join(',')})`;
+            if(categoryIds.length > 1) {
+                for(const categoryId of categoryIds) {
+                    const checkCategory=await petitions.categoryExists2(categoryId);
+                    if (checkCategory === false) {
+                        res.statusMessage = "bad Request";
+                        res.status(400).send();
+                        return;
+                    }
+                }
+                userParamString += ` AND p.category_id IN (${categoryIds.join(',')})`;
+            } else {
+                for (const categoryId of categoryIds) {
+                    const checkCategory = await petitions.categoryExists2(categoryId);
+                    if (checkCategory === false) {
+                        res.statusMessage = "bad Request";
+                        res.status(400).send();
+                        return;
+                    }
+                }
+                userParamString += ` AND p.category_id IN (${categoryIds})`;
+            }
         }
         if (requestedOwnerId !== undefined) {
             userParamString += ` AND p.owner_id = ${requestedOwnerId}`;
@@ -141,7 +163,7 @@ const getPetition = async (req: Request, res: Response): Promise<void> => {
                 numberOfSupporters: petition.numberOfSupporters,
                 creationDate: petition.creationDate,
                 description: petition.description,
-                moneyRaised: petition.moneyRaised,
+                moneyRaised: parseInt(petition.moneyRaised,10),
                 supportTiers
             });
             return;
@@ -217,6 +239,7 @@ const addPetition = async (req: Request, res: Response): Promise<void> => {
 
 const editPetition = async (req: Request, res: Response): Promise<void> => {
     try {
+        const { title, description, categoryId } = req.body;
         const validation = await validate(schemas.petition_patch, req.body);
         if (validation !== true) {
             res.status(400).send(`Bad Request: ${validation.toString()}`);
@@ -224,7 +247,8 @@ const editPetition = async (req: Request, res: Response): Promise<void> => {
         }
         const petitionId = parseInt(req.params.id, 10);
         if (isNaN(petitionId)) {
-            res.status(400).send('Bad Request: Invalid petition ID');
+            res.statusMessage = 'Bad Request: Invalid petition ID';
+            res.status(400).send();
             return;
         }
 
@@ -246,14 +270,17 @@ const editPetition = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        const { title, description, categoryId } = req.body;
 
+logger.info("I get here")
 
         if (title !== undefined) {
-            const petitonTitleExists = await petitions.titleExistsInPetition(petitionId,title)
+            const petitonTitleExists = await petitions.titleExistsInDB(title)
+            logger.info(petitonTitleExists)
+
             if (petitonTitleExists) {
                 res.statusMessage = "Bad Request: Title";
                 res.status(403).send();
+                return ;
             }
             await petitions.updateTitle(petitionId, title);
         }

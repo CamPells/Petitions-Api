@@ -73,6 +73,11 @@ const categoryExists = async (categoryId: number): Promise<boolean> => {
     const [rows] = await getPool().query(query, categoryId);
     return rows[0].count > 0;
 }
+const categoryExists2 = async (categoryId: string): Promise<boolean> => {
+    const query = `SELECT COUNT(*) AS count FROM category WHERE id = ?`;
+    const [rows] = await getPool().query(query, categoryId);
+    return rows[0].count > 0;
+}
 
 // Function to check if a title exists
 const titleExistsInPetition = async (petitionId: number, title: string): Promise<boolean> => {
@@ -80,6 +85,15 @@ const titleExistsInPetition = async (petitionId: number, title: string): Promise
     const [rows] = await getPool().query(query, [petitionId, title]);
     return rows[0].count > 0;
 };
+
+const titleExistsInDB = async (title: string): Promise<boolean> => {
+    const conn = await getPool().getConnection();
+    const query = 'SELECT COUNT(*) AS count FROM `petition` WHERE title = ?';
+    const [rows] = await conn.query(query, [title]);
+    conn.release();
+    return rows[0].count > 0; // Return true if count is greater than 0, indicating title exists
+}
+
 // Function to insert a new petition into the database
 const insertPetition = async (title: string, description: string, categoryId: number, ownerId: number, supportTiers: any[]): Promise<number> => {
     const conn = await getPool().getConnection();
@@ -309,7 +323,8 @@ const removeImage = async (filename: string): Promise<void> => {
 
 
 
-export {removeImage,hasUserSupportedTier,updatePetitionsHeroPic,getImageFilename, getSupportTierId
+export {categoryExists2,titleExistsInDB,
+    removeImage,hasUserSupportedTier,updatePetitionsHeroPic,getImageFilename, getSupportTierId
     ,addSupporterToDb,isUserOwnerOfPetition, getSupportersFromDatabase, supportTierExists,removeSupportTier,titleExistsInPetition
     ,insertSupportTier, updateSupportTierCost, updateSupportTierTitle, updateSupportTierDescription,supporterExistsForTier,hasSupporters,getAllCategories
     , petitionExists, removePetition, updateTitle, updateCategory, updatePetitionDescription,
