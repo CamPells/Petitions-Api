@@ -12,7 +12,8 @@ const getAllSupportersForPetition = async (req: Request, res: Response): Promise
     try {
         const petitionId = parseInt(req.params.id, 10);
         if (isNaN(petitionId)) {
-            res.status(400).send('Bad Request: Invalid petition ID');
+            res.statusMessage = 'Bad Request: Invalid petition ID'
+            res.status(400).send();
             return;
         }
 
@@ -30,12 +31,14 @@ const addSupporter = async (req: Request, res: Response): Promise<void> => {
         // Validate request body
         const validation = await validate(schemas.support_post, req.body);
         if (validation !== true) {
-            res.status(400).send(`Bad Request: ${validation.toString()}`);
+            res.statusMessage = `Bad Request:`
+            res.status(400).send();
             return;
         }
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
-            res.status(401).send('Unauthorized: Missing authentication token');
+            res.statusMessage = 'Unauthorized: Missing authentication token'
+            res.status(401).send();
             return;
         }
 
@@ -47,35 +50,41 @@ const addSupporter = async (req: Request, res: Response): Promise<void> => {
 
 
         if (isNaN(petitionId) || isNaN(supportTierId)) {
-            res.status(400).send('Bad Request: Invalid petition ID or support tier ID');
+            res.statusMessage = 'Bad Request: Invalid petition ID or support tier ID'
+            res.status(400).send();
             return;
         }
 
         const isOwner = await petitions.isUserOwnerOfPetition(userId, petitionId);
         if (isOwner) {
-            res.status(403).send('Forbidden: Cannot support your own petition');
+            res.statusMessage = 'Forbidden: Cannot support your own petition'
+            res.status(403).send();
             return;
         }
         const alreadySupported = await petitions.hasUserSupportedTier(userId, petitionId, supportTierId);
         if (alreadySupported) {
-            res.status(403).send('Forbidden: User has already supported the petition at this tier');
+            res.statusMessage = 'Forbidden: User has already supported the petition at this tier'
+            res.status(403).send();
             return;
         }
         const supportTierExists = await petitions.supportTierExists(supportTierId);
         if (!supportTierExists) {
-            res.status(404).send(`Not Found: No support tier found with id `);
+            res.statusMessage = `Not Found: No support tier found with id `
+            res.status(404).send();
             return;
         }
 
         const petitionExists = await petitions.petitionExists(petitionId);
         if (!petitionExists) {
-            res.status(404).send(`Not Found: No petition found with id `);
+            res.statusMessage =`Not Found: No petition found with id `
+            res.status(404).send();
             return;
         }
 
         await petitions.addSupporterToDb(petitionId, userId, supportTierId, message);
+        res.statusMessage = "Created"
 
-        res.status(201).send('Created');
+        res.status(201).send();
     } catch (err) {
         Logger.error(err);
         res.statusMessage = 'Internal Server Error';

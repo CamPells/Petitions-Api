@@ -70,49 +70,58 @@ const addSupportTier = async (req: Request, res: Response): Promise<void> => {
 const editSupportTier = async (req: Request, res: Response): Promise<void> => {
     const validation = await validate(schemas.support_tier_patch, req.body);
     if (validation !== true) {
-        res.status(400).send(`Bad Request ${validation.toString()}`);
+        res.statusMessage = "Bad Request";
+        res.status(400).send();
         return;
     }
     try {
         const petitionId = parseInt(req.params.id, 10);
         const tierId = parseInt(req.params.tierId, 10);
         if (isNaN(petitionId) || isNaN(tierId)) {
-            res.status(400).send('Bad Request: Invalid petition ID or tier ID');
+            res.statusMessage = "Bad Request: Invalid petition ID";
+            res.status(400).send();
             return;
         }
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
-            res.status(401).send('Unauthorized: Missing authentication token');
+            res.statusMessage ='Unauthorized: Missing authentication token'
+            res.status(401).send();
             return;
         }
         const userId = await petitions.getUserIdFromAuthToken(authToken);
         if (!userId) {
-            res.status(401).send('Unauthorized: Invalid authentication token');
+            res.statusMessage ='Unauthorized: Invalid authentication token'
+            res.status(401).send();
             return;
         }
         const isOwner = await petitions.isPetitionOwner(petitionId, userId);
         if (!isOwner) {
-            res.status(403).send('Forbidden: Only the owner of a petition may modify it');
+            res.statusMessage = 'Forbidden: Only the owner of a petition may modify it'
+            res.status(403).send();
             return;
         }
         const supporterExists = await petitions.supporterExistsForTier(tierId);
         if (supporterExists) {
-            res.status(403).send('Forbidden: Cannot edit a support tier if a supporter already exists for it');
+            res.statusMessage = 'Forbidden: Cannot edit a support tier if a supporter already exists for it'
+            res.status(403).send();
             return;
         }
         const { title, description, cost } = req.body;
         if (!title && !description && !cost) {
-            res.status(400).send('Bad Request: At least one field should be present for updating');
+            res.statusMessage = 'Bad Request: At least one field should be present for updating'
+            res.status(400).send();
             return;
         }
         const doesPetitionExist = await petitions.petitionExists(petitionId);
         if (!doesPetitionExist) {
-            res.status(404).send('Not Found: Petition not found');
+            res.statusMessage = 'Not Found: Petition not found'
+            res.status(404).send();
             return;
         }
         const titleExistsInPetition = await petitions.titleExistsInPetition(petitionId, title);
         if (titleExistsInPetition) {
-            res.status(403).send('Forbidden: Support title not unique within petition');
+            res.statusMessage = 'Forbidden: Support title not unique within petition'
+            res.status(403).send();
             return;
         }
 
@@ -139,43 +148,51 @@ const deleteSupportTier = async (req: Request, res: Response): Promise<void> => 
         const petitionId = parseInt(req.params.id, 10);
         const tierId = parseInt(req.params.tierId, 10);
         if (isNaN(petitionId) || isNaN(tierId)) {
-            res.status(400).send('Bad Request: Invalid petition ID or support tier ID');
+            res.statusMessage = 'Bad Request: Invalid petition ID or support tier ID'
+            res.status(400).send();
             return;
         }
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
-            res.status(401).send('Unauthorized: Missing authentication token');
+            res.statusMessage ='Unauthorized: Missing authentication token'
+            res.status(401).send();
             return;
         }
         const supportTierExists = await petitions.supportTierExists(tierId);
         if (!supportTierExists) {
-            res.status(404).send('Not Found: Support tier does not exist');
+            res.statusMessage = 'Not Found: Support tier does not exist'
+            res.status(404).send();
             return;
         }
 
         const userId = await petitions.getUserIdFromAuthToken(authToken);
         if (!userId) {
-            res.status(401).send('Unauthorized: Invalid authentication token');
+            res.statusMessage = 'Unauthorized: Invalid authentication token'
+            res.status(401).send();
             return;
         }
         const supporterExists = await petitions.supporterExistsForTier(tierId);
         if (supporterExists) {
-            res.status(403).send('Forbidden: Cannot remove a support tier if a supporter already exists for it');
+            res.statusMessage ='Forbidden: Cannot remove a support tier if a supporter already exists for it'
+            res.status(403).send();
             return;
         }
         const supportTiers = await petitions.getSupportTiers(petitionId);
         if (supportTiers.length === 1) {
-            res.status(404).send('Forbidden: Cannot remove the only support tier for a petition');
+            res.statusMessage = 'Forbidden: Cannot remove the only support tier for a petition'
+            res.status(404).send();
             return;
         }
         const isOwner = await petitions.isPetitionOwner(petitionId, userId);
         if (!isOwner) {
-            res.status(403).send('Forbidden: Only the owner of a petition may delete it');
+            res.statusMessage = 'Forbidden: Only the owner of a petition may delete it'
+            res.status(403).send();
             return;
         }
         await petitions.removeSupportTier(tierId);
 
-        res.status(200).send('OK');
+        res.statusMessage = "OK"
+        res.status(200).send();
     } catch (err) {
         Logger.error(err);
         res.statusMessage = "Internal Server Error";

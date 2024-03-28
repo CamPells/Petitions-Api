@@ -10,7 +10,8 @@ const ajv = new Ajv({ removeAdditional: 'all', strict: false });
 const getAllPetitions = async (req: Request, res: Response): Promise<void> => {
     const validation = await validate(schemas.petition_search, req.query);
     if (validation !== true) {
-        res.status(400).send(`Bad Request ${validation.toString()}`);
+        res.statusMessage = 'Bad request';
+        res.status(400).send();
         return;
     }
     try {
@@ -324,31 +325,35 @@ const deletePetition = async (req: Request, res: Response): Promise<void> => {
 
         const authToken = req.headers['x-authorization'];
         if (!authToken) {
-            res.status(401).send('Unauthorized: Missing authentication token');
+            res.statusMessage ='Unauthorized: Missing authentication token'
+            res.status(401).send();
             return;
         }
 
         const userId = await petitions.getUserIdFromAuthToken(authToken);
         if (!userId) {
-            res.status(401).send('Unauthorized: Invalid authentication token');
+            res.statusMessage = 'Unauthorized: Invalid authentication token'
+            res.status(401).send();
             return;
         }
 
         // Check if the user is the owner of the petition
         const isOwner = await petitions.isPetitionOwner(petitionId, userId);
         if (!isOwner) {
-            res.status(403).send('Forbidden: Only the owner of a petition may delete it');
+            res.statusMessage = 'Forbidden: Only the owner of a petition may delete it'
+            res.status(403).send();
             return;
         }
 
         const hasSupporters = await petitions.hasSupporters(petitionId);
         if (hasSupporters) {
-            res.status(403).send('Forbidden: Cannot delete a petition with one or more supporters');
+            res.statusMessage = 'Forbidden: Cannot delete a petition with one or more supporters'
+            res.status(403).send();
             return;
         }
         await petitions.removePetition(petitionId);
-
-        res.status(200).send("petition deleted");
+        res.statusMessage = "Petition successfully deleted"
+        res.status(200).send();
     } catch (err) {
         Logger.error(err);
         res.statusMessage = "Internal Server Error";
@@ -364,7 +369,8 @@ const getCategories = async(req: Request, res: Response): Promise<void> => {
             res.status(200).json(categories);
             return;
         } else {
-            res.status(404).json({ message: "No categories found" });
+            res.statusMessage = 'No Categories Found';
+            res.status(404).send();
             return;
         }
     } catch (err) {
